@@ -1,0 +1,56 @@
+2026-01-19T23:58:34.883+00:00 <local3.info> kilo-production-j5m5mqt592d-solace-primary-0 tagINFO: CLIENT: CLIENT_CLIENT_CONNECT: iff_prod atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ Client (461) atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ username solace-cloud-client OriginalClientUsername(solace-cloud-client) WebSessionId (N/A) connected to 172.16.42.52:55443 from 172.16.35.145:45728 version(10.28.1) platform(Linux-amd64 (Java 11.0.17+8-LTS) - JCSMP SDK) SslVersion(TLSv1.2) SslCipher(ECDHE-RSA-AES256-GCM-SHA384 TLSv1.2 Kx=ECDH Au=RSA Enc=AESGCM(256) Mac=AEAD) APIuser('cloudadm' Computer: 'atom01.iffprodcloud.awsuse1.boomi.com' Process ID: 2293796) authScheme(Basic) authorizationGroup() clientProfile(default) ACLProfile(default) SSLDowngradedToPlainText(No) SSLNegotiatedTo() SslRevocation(Not Checked) Capabilities(unbind-ack, bind-response-endpoint-error-id, partitioned-queue, redelivery-delay-local-transactions) SslValidityNotAfter(-)
+
+* 2026-01-19T23:58:34.883+00:00:  date and time
+* <local3.info>:  log level
+* kilo-production-j5m5mqt592d-solace-primary-0: broker-name
+* CLIENT_CLIENT_CONNECT: event
+* iff_prod: vpn
+* atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ: client name
+* Client (461):  Client-id assigned by broker, unique per connection
+* username solace-cloud-client:  username used to authenticate
+* connected to 172.16.42.52:55443: broker ip address and port
+* from 172.16.35.145:45728: client ip address and port
+* version(10.28.1):  client api version
+* platform(Linux-amd64 (Java 11.0.17+8-LTS) - JCSMP SDK) SslVersion(TLSv1.2):  client API platform
+* APIuser('cloudadm' Computer: 'atom03.iffprodcloud.awsuse1.boomi.com' Process ID: 2293796): client description
+
+
+2026-01-19T23:58:39.904+00:00 <local3.info> kilo-production-j5m5mqt592d-solace-primary-0 tagINFO: CLIENT: CLIENT_CLIENT_DISCONNECT: iff_prod atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ Client (461) atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ username solace-cloud-client WebSessionId (N/A) reason(Peer TCP Closed) final statistics - dp(10, 11, 1, 0, 11, 11, 865, 946, 1880, 0, 2745, 946, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0) conn(0, 0, 172.16.35.145:45728, ESTAB, 0, 0, 0) zip(0, 0, 0, 0, 0.00, 0.00, 0, 0, 0, 0, 0, 0, 0, 0) web(0, 0, 0, 0, 0, 0, 0), SslVersion(TLSv1.2), SslCipher(ECDHE-RSA-AES256-GCM-SHA384 TLSv1.2 Kx=ECDH Au=RSA Enc=AESGCM(256) Mac=AEAD)
+
+
+* 2026-01-19T23:58:39.904+00:00: date and time
+* <local3.info>:  log level
+* kilo-production-j5m5mqt592d-solace-primary-0: broker-name
+* CLIENT_CLIENT_DISCONNECT: event
+* iff_prod: vpn
+* atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ: client name
+* username solace-cloud-client:  username used to authenticate
+* reason(Peer TCP Closed):  socket disconnect reason
+* final statistics - dp(10, 11, 1, 0, 11, 11, 865, 946, 1880, 0, 2745, 946, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0):  dataplane stats.
+*** Control Messages Received
+*** Control Messages Delivered
+*** Topic Messages Received
+*** Topic Messages Delivered
+*** Total Messages Received
+*** Total Messages Delivered
+*** Byte Counters (7-12):
+*** Control Bytes Received
+*** Control Bytes Delivered
+*** Topic Bytes Received
+*** Topic Bytes Delivered
+*** Total Bytes Received
+*** Total Bytes Delivered
+*** Message Rates (13-16):
+*** Current Message Rate at Ingress
+*** Current Message Rate at Egress
+*** Average Message Rate at Ingress
+*** Average Message Rate at Egress
+*** Denial/Discard Counters (17-22):
+*** Denied Duplicate Clients
+*** Ingress Discards: No Subscription Match
+*** Ingress Discards: Topic Parse Error
+*** Ingress Discards: Internal Parse Error
+*** Ingress Discards: Message Too Big
+*** Queue Discards: Transmit Congestion
+* conn(0, 0, 172.16.35.145:45728, ESTAB, 0, 0, 0): connection identifier. 3rd field is client ip address and port
+
