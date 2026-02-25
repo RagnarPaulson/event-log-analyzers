@@ -113,55 +113,38 @@ class ConnectionTracker:
         report_lines.append("CLIENT CONNECTION ANALYSIS REPORT")
         report_lines.append("=" * 80)
         report_lines.append("")
-
-        # Count active connections by IP
-        active_by_ip = defaultdict(int)
-        for endpoint, conn_info in self.active_connections.items():
-            ip = conn_info[0]  # First element of tuple is the IP
-            active_by_ip[ip] += 1
-
-        total_active = len(self.active_connections)
-        total_completed = sum(len(stats['connection_durations']) for stats in self.ip_stats.values())
-
         report_lines.append(f"Total unique source IP addresses: {len(self.ip_stats)}")
-        report_lines.append(f"Completed sessions in analysis:  {total_completed}")
-        report_lines.append(f"Active sessions at end:           {total_active}")
         report_lines.append("")
         report_lines.append("=" * 80)
         report_lines.append("")
-
+        
         # Sort IPs by total connections (descending)
         sorted_ips = sorted(
             self.ip_stats.items(),
             key=lambda x: x[1]['total_connections'],
             reverse=True
         )
-
+        
         for ip, stats in sorted_ips:
-            active_count = active_by_ip.get(ip, 0)
-            completed_count = len(stats['connection_durations'])
-
             report_lines.append(f"Source IP: {ip}")
             report_lines.append("-" * 80)
             report_lines.append(f"  Total Connections:           {stats['total_connections']}")
-            report_lines.append(f"    Completed Sessions:        {completed_count}")
-            report_lines.append(f"    Still Active:              {active_count}")
-
+            
             if stats['connection_durations']:
                 avg_duration = sum(stats['connection_durations']) / len(stats['connection_durations'])
                 report_lines.append(f"  Average Connection Duration: {avg_duration:.2f} seconds")
             else:
                 report_lines.append(f"  Average Connection Duration: N/A (no completed connections)")
-
+            
             if stats['concurrent_connections_samples']:
                 max_concurrent = max(stats['concurrent_connections_samples'])
                 report_lines.append(f"  Max Concurrent Connections:  {max_concurrent}")
             else:
                 report_lines.append(f"  Max Concurrent Connections:  0")
-
+            
             report_lines.append(f"  TCP Resets (Peer):           {stats['tcp_resets']}")
             report_lines.append("")
-
+        
         report_lines.append("=" * 80)
         return "\n".join(report_lines)
 
@@ -209,27 +192,18 @@ def find_and_sort_log_files(directory: str) -> List[str]:
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python analyze_client_connections.py <log_file_or_directory>", file=sys.stderr)
+        print("Usage: python analyze_client_connections.py <log_directory>", file=sys.stderr)
         sys.exit(1)
 
-    path = sys.argv[1]
+    log_directory = sys.argv[1]
 
     try:
-        # Check if path is a file or directory
-        if os.path.isfile(path):
-            # Single file mode
-            log_files = [path]
-            print(f"Processing single log file: {os.path.basename(path)}", file=sys.stderr)
-        elif os.path.isdir(path):
-            # Directory mode - find and sort log files chronologically
-            log_files = find_and_sort_log_files(path)
-            print(f"Processing {len(log_files)} log file(s) in chronological order:", file=sys.stderr)
-            for log_file in log_files:
-                print(f"  - {os.path.basename(log_file)}", file=sys.stderr)
-        else:
-            print(f"Error: {path} is not a valid file or directory", file=sys.stderr)
-            sys.exit(1)
+        # Find and sort log files chronologically
+        log_files = find_and_sort_log_files(log_directory)
 
+        print(f"Processing {len(log_files)} log file(s) in chronological order:", file=sys.stderr)
+        for log_file in log_files:
+            print(f"  - {os.path.basename(log_file)}", file=sys.stderr)
         print("", file=sys.stderr)
 
         tracker = ConnectionTracker()

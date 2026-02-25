@@ -1,58 +1,85 @@
-# Event Log Analyzers
+# Solace Event Log Analysis - Claude Context Repository
 
-Python scripts for analyzing Solace broker event logs.
+This repository provides **context and log format specifications** for Claude to generate custom Python scripts that analyze Solace broker event logs.
 
-## Overview
+## Purpose
 
-This repository contains tools for analyzing client connection patterns in Solace message broker event logs.
+Rather than providing pre-built analysis tools, this repository serves as a **knowledge base** that enables Claude Code to:
+- Understand Solace event log formats
+- Generate custom analyzers for specific questions
+- Provide working examples as reference implementations
 
-## Analyzers
+## How to Use This Repository
 
-### 1. Client Connection Analyzer (`analyze_client_connections.py`)
+1. **Ask Claude specific questions about your logs**:
+   - "Which client IPs have the most TCP resets?"
+   - "Show me reconnection patterns for client X"
+   - "Find all clients using TLS version 1.1"
+   - "Calculate average session duration by VPN"
 
-Analyzes connection metrics per source IP address from a single log file.
+2. **Claude will generate custom Python scripts** using the log format specifications in `CLAUDE.md`
 
-**Usage:**
-```bash
-./analyze_client_connections.py <logfile>
-```
+3. **Example scripts are included** as reference implementations:
+   - `analyze_client_connections.py` - Connection metrics per source IP
+   - `analyze_client_reconnects.py` - Reconnection pattern analysis
 
-**Metrics:**
-- Total connections per source IP
-- Average connection duration per IP
-- Maximum concurrent connections per IP
-- TCP reset count per IP
+## Extending This Repository
 
-### 2. Client Reconnection Analyzer (`analyze_client_reconnects.py`)
+To enhance Claude's ability to generate analyzers, **add more log format specifications** to `CLAUDE.md`:
 
-Analyzes client reconnection patterns across rotated log files in a directory.
+### Currently Documented Formats:
+- ✅ Solace broker event logs (CLIENT_CLIENT_CONNECT, CLIENT_CLIENT_DISCONNECT)
 
-**Usage:**
-```bash
-./analyze_client_reconnects.py <log_directory>
-```
+### Add New Formats By Documenting:
+- **Other Solace event types**: QUEUE events, BRIDGE events, VPN events, etc.
+- **Message logs**: Individual message tracking, publish/subscribe patterns
+- **System logs**: Broker health, memory usage, queue statistics
+- **Audit logs**: Administrative actions, configuration changes
+- **Performance metrics**: Dataplane statistics, ingress/egress rates
 
-**Metrics:**
-- Total client reconnections
-- Reconnections after TCP reset vs. TCP closed
-- Min/max/average reconnection time
-- Event processing statistics
+### How to Add a New Log Format:
 
-## Log File Format
+1. Add a new section to `CLAUDE.md` with:
+   - Event type name and purpose
+   - Complete line format with field descriptions
+   - Example log lines (annotated)
+   - Key fields for matching/correlating events
+   - Common analysis patterns
 
-The scripts process Solace broker event logs with:
-- ISO 8601 timestamps
-- CLIENT_CLIENT_CONNECT and CLIENT_CLIENT_DISCONNECT events
-- Rotated log files (event.log, event.log.1, event.log.2, etc.)
+2. Include annotated examples in separate `.txt` files
 
-See `CLAUDE.md` for detailed log format documentation and architecture details.
+3. Optionally provide a reference implementation script
+
+## Log Format Documentation
+
+See `CLAUDE.md` for:
+- Detailed event log structure
+- Field-by-field specifications
+- Event matching strategies
+- Example analysis patterns
+- Architecture of reference implementations
 
 ## Requirements
 
+Generated scripts use:
 - Python 3.6+
-- No external dependencies (uses standard library only)
+- Standard library only (no external dependencies)
+- Executable with `#!/usr/bin/env python3`
 
-## Documentation
+## Files in This Repository
 
-- `CLAUDE.md` - Architecture and detailed format specification
-- `annotated-event-log.txt` - Example logs with field annotations
+- **`CLAUDE.md`** - Primary context file with log format specifications
+- **`README.md`** - This file
+- **`annotated-event-log.txt`** - Example event logs with field annotations
+- **`analyze_client_connections.py`** - Reference: IP-based connection analysis
+- **`analyze_client_reconnects.py`** - Reference: Client reconnection patterns
+
+## Examples of Questions You Can Ask
+
+- "Generate a script to find all clients that had more than 10 reconnections"
+- "Show me clients with average connection duration under 5 seconds"
+- "Which VPNs have the highest disconnect rate?"
+- "Find clients using deprecated TLS versions"
+- "Correlate disconnect reasons with client platform types"
+
+Each question will result in a custom Python script tailored to your specific analysis needs.

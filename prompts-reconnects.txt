@@ -1,0 +1,59 @@
+Prompts Used to Create analyze_client_reconnects.py
+====================================================
+
+This file documents the sequence of prompts used to create and refine the
+analyze_client_reconnects.py script.
+
+---
+
+PROMPT 1:
+Now create a python script that when given a directory name analyzes the event
+logs in that directory in chronological order. It will look for CONNECT and
+DISCONNECT events and correlate them by client name. Typically expect a client
+name to only appear in one connect followed by one disconnect. When it appears
+in a second connect that indicates the client is reconnecting. Provide a count
+of, total client reconnects, and a count of client reconnects after 'peer tcp
+reset' and a count of client reconnects after 'peer tcp closed'. Also track the
+time from disconnect to reconnect and report on the minimum, maximum and average
+time to reconnect.
+
+CONTEXT: This prompt was given after establishing the log file format, rotation
+scheme (event.log.N where higher N = older), and annotated event log structure.
+
+---
+
+PROMPT 2:
+I fixed your script. Now add to the report the total number of connections seen
+and total number of resets.
+
+CONTEXT: User corrected the log file sorting logic (changed from negative indices
+to positive with reverse=True, and fixed parts[2] for extracting the suffix number).
+
+---
+
+PROMPT 3:
+the counts produced by this application do not match a simple 'grep' for
+connects/disconnects/reset/closed so we must be discarding/ignoring lines in the
+event logs. Create a stat for each reason a connect or disconnect event log is
+ignored and include that in the final stats as well
+
+CONTEXT: User discovered discrepancies between script counts and grep counts,
+indicating events were being filtered out during processing.
+
+---
+
+PROMPT 4:
+one last detail, add the timestamp of the first and last entry processed and the
+total duration of the logs analyzed
+
+CONTEXT: Final enhancement to provide time range context for the analysis.
+
+---
+
+KEY DESIGN DECISIONS MADE:
+- Track client lifecycle by client name (not IP:port like the other analyzer)
+- Detect reconnections when a client connects after a previous disconnect
+- Categorize disconnect reasons: tcp_reset, tcp_closed, other
+- Process rotated logs chronologically (oldest to newest)
+- Maintain event processing statistics for reconciliation with grep counts
+- Report time range and duration of logs analyzed

@@ -32,7 +32,6 @@ class ReconnectionTracker:
         self.reconnects_after_tcp_reset = 0
         self.reconnects_after_tcp_closed = 0
         self.reconnect_times: List[float] = []  # Time in seconds from disconnect to reconnect
-        self.reconnect_outliers: List[dict] = []  # Reconnects > 100 seconds
 
         # Event parsing statistics
         self.connect_events_seen = 0
@@ -98,19 +97,7 @@ class ReconnectionTracker:
 
             # Calculate reconnection time
             reconnect_time = (timestamp - disconnect_time).total_seconds()
-
-            # Check for outliers (> 100 seconds)
-            if reconnect_time > 100:
-                self.reconnect_outliers.append({
-                    'client_name': client_name,
-                    'disconnect_time': disconnect_time.isoformat(),
-                    'connect_time': timestamp.isoformat(),
-                    'reconnect_time': reconnect_time,
-                    'disconnect_reason': disconnect_reason
-                })
-            else:
-                # Only include normal reconnects in timing statistics
-                self.reconnect_times.append(reconnect_time)
+            self.reconnect_times.append(reconnect_time)
 
             # Count total reconnects
             self.total_reconnects += 1
@@ -222,8 +209,7 @@ class ReconnectionTracker:
             report_lines.append("")
 
         report_lines.append(f"Total Connections:                          {self.total_connections}")
-        report_lines.append(f"Total Disconnects (Completed Sessions):     {self.total_disconnects}")
-        report_lines.append(f"Active Sessions at End:                     {len(self.connected_clients)}")
+        report_lines.append(f"Total Disconnects:                          {self.total_disconnects}")
         report_lines.append(f"Total 'Peer TCP Reset' Disconnects:         {self.total_tcp_resets}")
         report_lines.append(f"Total 'Peer TCP Closed' Disconnects:        {self.total_tcp_closed}")
         report_lines.append("")
@@ -237,10 +223,8 @@ class ReconnectionTracker:
             max_time = max(self.reconnect_times)
             avg_time = sum(self.reconnect_times) / len(self.reconnect_times)
 
-            report_lines.append("Reconnection Time Statistics (excluding outliers > 100s):")
+            report_lines.append("Reconnection Time Statistics:")
             report_lines.append("-" * 80)
-            report_lines.append(f"  Reconnects included in stats:             {len(self.reconnect_times)}")
-            report_lines.append(f"  Reconnect outliers excluded:              {len(self.reconnect_outliers)}")
             report_lines.append(f"  Minimum time to reconnect:                {min_time:.2f} seconds")
             report_lines.append(f"  Maximum time to reconnect:                {max_time:.2f} seconds")
             report_lines.append(f"  Average time to reconnect:                {avg_time:.2f} seconds")
@@ -248,26 +232,6 @@ class ReconnectionTracker:
             report_lines.append("Reconnection Time Statistics:")
             report_lines.append("-" * 80)
             report_lines.append("  No reconnection timing data available")
-
-        # Report outliers for manual inspection
-        if self.reconnect_outliers:
-            report_lines.append("")
-            report_lines.append("=" * 80)
-            report_lines.append("RECONNECT OUTLIERS (> 100 seconds) - Manual Inspection Required")
-            report_lines.append("=" * 80)
-            report_lines.append(f"\nFound {len(self.reconnect_outliers)} reconnect(s) exceeding 100 seconds:")
-            report_lines.append("")
-
-            # Sort by reconnect time descending
-            sorted_outliers = sorted(self.reconnect_outliers, key=lambda x: x['reconnect_time'], reverse=True)
-
-            for outlier in sorted_outliers:
-                report_lines.append(f"Client: {outlier['client_name']}")
-                report_lines.append(f"  Disconnect time:   {outlier['disconnect_time']}")
-                report_lines.append(f"  Reconnect time:    {outlier['connect_time']}")
-                report_lines.append(f"  Time to reconnect: {outlier['reconnect_time']:.2f} seconds ({outlier['reconnect_time']/60:.2f} minutes)")
-                report_lines.append(f"  Disconnect reason: {outlier['disconnect_reason']}")
-                report_lines.append("")
 
         report_lines.append("")
         report_lines.append("Event Processing Statistics:")
@@ -331,27 +295,18 @@ def find_and_sort_log_files(directory: str) -> List[str]:
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python analyze_client_reconnects.py <log_file_or_directory>", file=sys.stderr)
+        print("Usage: python analyze_client_reconnects.py <log_directory>", file=sys.stderr)
         sys.exit(1)
 
-    path = sys.argv[1]
+    log_directory = sys.argv[1]
 
     try:
-        # Check if path is a file or directory
-        if os.path.isfile(path):
-            # Single file mode
-            log_files = [path]
-            print(f"Processing single log file: {os.path.basename(path)}", file=sys.stderr)
-        elif os.path.isdir(path):
-            # Directory mode - find and sort log files chronologically
-            log_files = find_and_sort_log_files(path)
-            print(f"Processing {len(log_files)} log file(s) in chronological order:", file=sys.stderr)
-            for log_file in log_files:
-                print(f"  - {os.path.basename(log_file)}", file=sys.stderr)
-        else:
-            print(f"Error: {path} is not a valid file or directory", file=sys.stderr)
-            sys.exit(1)
+        # Find and sort log files chronologically
+        log_files = find_and_sort_log_files(log_directory)
 
+        print(f"Processing {len(log_files)} log file(s) in chronological order:", file=sys.stderr)
+        for log_file in log_files:
+            print(f"  - {os.path.basename(log_file)}", file=sys.stderr)
         print("", file=sys.stderr)
 
         tracker = ReconnectionTracker()
