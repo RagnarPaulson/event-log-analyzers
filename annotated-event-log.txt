@@ -24,6 +24,7 @@
 * CLIENT_CLIENT_DISCONNECT: event
 * iff_prod: vpn
 * atom01.iffprodcloud.awsuse1.boom/2293796/ab8a9e404c7795d00390/1FIjccNfaQ: client name
+* Client (461): Client-id assigned by broker — matches the Client-id in the corresponding CONNECT event; use this as the primary key to correlate CONNECT/DISCONNECT pairs
 * username solace-cloud-client:  username used to authenticate
 * reason(Peer TCP Closed):  socket disconnect reason
 * final statistics - dp(10, 11, 1, 0, 11, 11, 865, 946, 1880, 0, 2745, 946, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0):  dataplane stats.

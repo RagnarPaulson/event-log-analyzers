@@ -17,6 +17,16 @@ When a user asks a question about Solace logs:
 3. **Use the reference implementations** as architectural examples
 4. **Follow the patterns** for parsing, matching events, and reporting
 
+### Supported Event Types
+
+This repository provides specifications and examples for analyzing these Solace broker event types:
+- **CLIENT_CLIENT_CONNECT**: Client connection establishment
+- **CLIENT_CLIENT_DISCONNECT**: Client disconnection with statistics
+- **CLIENT_CLIENT_OPEN_FLOW**: Publisher flow opened (identifies publishing connections)
+- **CLIENT_CLIENT_BIND_SUCCESS**: Consumer queue binding (identifies consuming connections)
+- **CLIENT_CLIENT_TRANSACTED_SESSION_OPEN**: Transaction session started
+- **CLIENT_CLIENT_TRANSACTED_SESSION_CLOSE**: Transaction session completed with commit/rollback statistics
+
 ## Extending This Repository
 
 To handle new log types or event formats:
@@ -92,7 +102,12 @@ if 'CLIENT_CLIENT_CONNECT' in line:
     # Extract timestamp
     timestamp = line[:29]  # ISO 8601 format
 
-    # Extract client endpoint (critical for matching)
+    # Extract Client ID (PRIMARY matching key)
+    client_id_match = re.search(r'Client \((\d+)\)', line)
+    if client_id_match:
+        client_id = client_id_match.group(1)
+
+    # Extract client endpoint (for IP-based reporting only)
     match = re.search(r'from ([\d\.]+):(\d+)', line)
     if match:
         client_ip = match.group(1)
@@ -114,10 +129,13 @@ if 'CLIENT_CLIENT_CONNECT' in line:
   - Case variations exist: `Peer TCP reset` vs `Peer TCP Reset`
 
 **Connection Identification**:
+- `Client (ID)` - **PRIMARY MATCHING KEY**: Broker-assigned unique ID per connection (e.g., `Client (461)`)
+  - Present in both CONNECT and DISCONNECT events
+  - Use for all general-purpose connect/disconnect correlation
+  - Note: client-id values may be reused for subsequent connections; use stateful tracking (add on CONNECT, remove on DISCONNECT)
 - `conn(...)` - Connection tuple with format `conn(0, 0, <client-ip>:<client-port>, <state>, 0, 0, 0)`
-  - **CRITICAL**: The **third field** (`<client-ip>:<client-port>`) must match the `from` field in the corresponding CONNECT event
+  - **SECONDARY**: The **third field** (`<client-ip>:<client-port>`) is used only when the analysis specifically requires IP-based grouping or reporting
   - **Fourth field**: Connection state (e.g., `ESTAB`, `CLSWT`)
-  - Use this to pair disconnect events with their connect events
 
 **Dataplane Statistics**:
 - `final statistics - dp(...)` - 22-field comma-separated tuple containing:
@@ -137,7 +155,7 @@ if 'CLIENT_CLIENT_CONNECT' in line:
 - `web(...)` - Web transport statistics (if using WebSocket/REST)
 
 **Orphaned Disconnects**:
-- Disconnects without a matching prior connect (based on `ip:port` endpoint) should be ignored
+- Disconnects without a matching prior connect (based on `Client (ID)`) should be ignored
 - This can happen if the connect occurred before the log window being analyzed
 
 **Example Pattern for Parsing**:
@@ -146,7 +164,12 @@ if 'CLIENT_CLIENT_DISCONNECT' in line:
     # Extract timestamp
     timestamp = line[:29]
 
-    # Extract endpoint from conn(...) tuple
+    # Extract Client ID (PRIMARY matching key)
+    client_id_match = re.search(r'Client \((\d+)\)', line)
+    if client_id_match:
+        client_id = client_id_match.group(1)
+
+    # Extract endpoint from conn(...) tuple (for IP-based reporting only)
     conn_match = re.search(r'conn\([^,]+,\s*[^,]+,\s*([\d\.]+:\d+)', line)
     if conn_match:
         endpoint = conn_match.group(1)
@@ -167,21 +190,28 @@ if 'CLIENT_CLIENT_DISCONNECT' in line:
 
 **To correlate connect and disconnect events**:
 
-1. Use `<client-ip>:<client-port>` as the matching key
-   - From CONNECT: Extract from `from <ip>:<port>`
-   - From DISCONNECT: Extract from third field of `conn(..., ..., <ip>:<port>, ...)`
+**PRIMARY METHOD - Use `Client (ID)` for matching**:
+1. Extract `Client (ID)` from both CONNECT and DISCONNECT events
+   - From CONNECT: Extract using `re.search(r'Client \((\d+)\)', line)`
+   - From DISCONNECT: Extract using the same pattern
 
-2. Store active connections in a dictionary keyed by endpoint
+2. Store active connections in a dictionary keyed by Client ID
    ```python
-   active_connections = {}  # endpoint -> {timestamp, ip, ...}
+   active_connections = {}  # client_id -> {timestamp, ip, client_name, ...}
    ```
 
-3. When processing CONNECT: Add to dictionary
-4. When processing DISCONNECT: Look up and remove from dictionary, calculate duration
+3. When processing CONNECT: Add to dictionary using Client ID as key
+4. When processing DISCONNECT: Look up by Client ID, remove from dictionary, calculate duration
 
 5. Handle edge cases:
    - Disconnect without connect: Ignore (logged before analysis window)
    - Connect without disconnect: Connection still active at end of analysis
+
+**SECONDARY METHOD - Use `<client-ip>:<client-port>` only for IP-based grouping**:
+- When the analysis specifically requires grouping or reporting by source IP
+- From CONNECT: Extract from `from <ip>:<port>`
+- From DISCONNECT: Extract from third field of `conn(..., ..., <ip>:<port>, ...)`
+- Example use case: Aggregate statistics per IP address for reporting
 
 ## Reference Implementation: ConnectionTracker
 
@@ -192,18 +222,19 @@ The `analyze_client_connections.py` script demonstrates this pattern:
 **Class: ConnectionTracker**
 
 **State Management**:
-- `active_connections`: Dict mapping `ip:port` → connection metadata
-- `ip_stats`: Dict mapping source IP → aggregated statistics
+- `active_connections`: Dict mapping `Client (ID)` → connection metadata (including IP, timestamp, etc.)
+- `ip_stats`: Dict mapping source IP → aggregated statistics for reporting
 
 **Core Methods**:
 1. `process_connect()`:
-   - Extracts endpoint from `from` field
-   - Stores in `active_connections`
+   - Extracts `Client (ID)` as primary key
+   - Extracts IP from `from` field for reporting
+   - Stores in `active_connections` keyed by Client ID
    - Updates concurrent connection count
 
 2. `process_disconnect()`:
-   - Extracts endpoint from `conn()` tuple
-   - Matches with `active_connections`
+   - Extracts `Client (ID)` to match with active connections
+   - Looks up connection in `active_connections` by Client ID
    - Calculates duration
    - Updates statistics (total connections, durations, TCP resets)
    - Removes from `active_connections`
@@ -214,7 +245,7 @@ The `analyze_client_connections.py` script demonstrates this pattern:
    - Sorts by connection count
 
 **Key Design Decisions**:
-- **Endpoint-based matching**: Full `ip:port` for matching, but aggregate by IP for reporting
+- **Client ID-based matching**: Use `Client (ID)` for connect/disconnect correlation, then aggregate by IP for reporting
 - **Concurrent connection sampling**: Sample count at each event rather than continuous tracking
 - **Graceful degradation**: Skip malformed lines, ignore orphaned disconnects
 
@@ -257,12 +288,14 @@ The `analyze_client_reconnects.py` script demonstrates tracking client lifecycle
 
 When generating custom analyzers:
 
-1. **Use standard library only**: No external dependencies (datetime, re, sys, collections)
-2. **Make executable**: Include `#!/usr/bin/env python3` shebang
-3. **Handle edge cases**: Malformed lines, missing fields, orphaned events
-4. **Provide clear output**: Formatted reports with context
-5. **Sort chronologically**: When processing multiple logs
-6. **Document assumptions**: What events are being matched, what's being ignored
+1. **Accept directory or file argument**: REQUIRED - All scripts must accept either a directory path or file path as a command-line argument
+2. **Use standard library only**: No external dependencies (datetime, re, sys, os, collections)
+3. **Make executable**: Include `#!/usr/bin/env python3` shebang
+4. **Handle edge cases**: Malformed lines, missing fields, orphaned events
+5. **Provide clear output**: Formatted reports with context and statistics
+6. **Sort chronologically**: When processing multiple log files
+7. **Document assumptions**: What events are being matched, what's being ignored
+8. **Use Client (ID) for matching**: Always use `Client (ID)` as the primary key for correlating CONNECT/DISCONNECT events; only use IP-based fields for grouping/reporting
 
 ## Common Analysis Patterns
 
@@ -417,16 +450,34 @@ See `annotated-event-log.txt` for complete example log entries with field-by-fie
 
 With these specifications, Claude should be able to generate scripts for questions like:
 
-- Connection analysis: "Which IPs have the most connections?"
-- Duration analysis: "What's the average session length per VPN?"
-- Disconnect analysis: "Show clients with high TCP reset rates"
-- Reconnection analysis: "Find clients reconnecting within 5 seconds"
-- Security analysis: "Which clients use TLS 1.1 or older?"
-- Platform analysis: "Break down connections by client SDK version"
-- Correlation analysis: "Do certain platforms have higher disconnect rates?"
-- Publisher/Consumer analysis: "How many publishers vs consumers per IP?"
-- Transaction analysis: "Which connections use the most transacted sessions?"
-- Transaction concurrency: "Find connections with concurrent transacted sessions"
-- Transaction statistics: "What's the commit vs rollback ratio?"
+### Connection Analysis
+- "Which IPs have the most connections?"
+- "What's the average session length per VPN?"
+- "Calculate average session duration by VPN"
+
+### Disconnect Analysis
+- "Show clients with high TCP reset rates"
+- "Find clients with high TCP reset rates"
+
+### Reconnection Analysis
+- "Find clients reconnecting within 5 seconds"
+- "Show reconnection patterns for client X"
+
+### Security Analysis
+- "Which clients use TLS 1.1 or older?"
+
+### Platform Analysis
+- "Break down connections by client SDK version"
+- "Do certain platforms have higher disconnect rates?"
+
+### Publisher/Consumer Analysis (using OPEN_FLOW and BIND_SUCCESS events)
+- "How many publishers vs consumers per IP?"
+- "Identify connections used for publishing vs consuming"
+
+### Transaction Analysis (using TRANSACTED_SESSION_OPEN/CLOSE events)
+- "Which connections use the most transacted sessions?"
+- "Find connections with concurrent transacted sessions"
+- "What's the commit vs rollback ratio?"
+- "Show transaction statistics by client"
 
 Each question becomes a custom script generated from these specifications.
