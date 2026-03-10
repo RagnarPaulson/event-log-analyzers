@@ -55,6 +55,52 @@ Event logs are rotated based on maximum size:
 1. Sort by suffix number in descending order: `event.log.20` → `event.log.1` → `event.log`
 2. Process in that order to maintain proper event sequence
 
+**CRITICAL - Log File Sorting Implementation**:
+
+When implementing the `find_and_sort_log_files()` function, use this EXACT pattern to avoid sorting bugs:
+
+```python
+def find_and_sort_log_files(path):
+    """
+    Accept either a single file or a directory.
+    Returns list of paths in chronological order (oldest first).
+    """
+    if os.path.isfile(path):
+        return [path]
+
+    if os.path.isdir(path):
+        log_files = []
+        for filename in os.listdir(path):
+            if not filename.startswith('event.log'):
+                continue
+            if filename == 'event.log':
+                suffix = 0  # Newest file
+            else:
+                m = re.match(r'event\.log\.(\d+)$', filename)
+                if not m:
+                    continue
+                suffix = int(m.group(1))
+            log_files.append((suffix, os.path.join(path, filename)))
+
+        # Sort by suffix DESCENDING (highest suffix = oldest file processed first)
+        log_files.sort(key=lambda x: x[0], reverse=True)
+        return [f[1] for f in log_files]
+```
+
+**Common Bug to Avoid**: Do NOT use a sort key function that returns the same value for `event.log` and `event.log.1`. The following is WRONG:
+```python
+# WRONG - both event.log and event.log.1 return -1
+def sort_key(filepath):
+    if filename == 'event.log':
+        return -1
+    match = re.search(r'event\.log\.(\d+)', filename)
+    if match:
+        return -int(match.group(1))
+    return 0  # Same as event.log!
+```
+
+Always use numeric suffix assignment (0 for `event.log`, N for `event.log.N`) and sort by that suffix in descending order.
+
 ### Common Event Structure
 
 All event log lines follow this structure:
